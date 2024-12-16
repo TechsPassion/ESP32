@@ -1,0 +1,120 @@
+#include <Arduino.h>
+#include <WiFi.h>
+#include <WebServer.h>
+
+// Pin configuration
+const int reedPin = 4;  // GPIO pin connected to the reed switch
+
+// Wheel and distance parameters
+const float wheelCircumference = 0.4; // Circumference of the wheel in meters
+
+// Variables to track rotations and distance
+volatile bool rotationDetected = false;
+volatile unsigned int rotationCount = 0;
+unsigned long previousMillis = 0;  // Used for non-blocking timing
+unsigned long lastRotationTime = 0; // Time of the last rotation
+float speed = 0.0; // Speed in meters per second
+
+// Interval for updating distance and speed (ms)
+const long interval = 100;
+
+// Wi-Fi settings
+const char* ssid = "Wifi Name"; // Replace with your Wi-Fi SSID
+const char* password = "Wifi Password"; // Replace with your Wi-Fi password
+
+// Create an instance of the web server on port 80
+WebServer server(80);
+
+// Debounce settings
+const unsigned long debounceDelay = 50;  // 50ms debounce threshold
+unsigned long lastDebounceTime = 0;  // Last debounce timestamp
+
+// Interrupt service routine for reed switch
+void IRAM_ATTR onReedSwitchTriggered() {
+  unsigned long currentMillis = millis();
+
+  // Only register the event if the debounce time has passed
+  if (currentMillis - lastDebounceTime > debounceDelay) {
+    rotationDetected = true;
+    rotationCount++;
+    lastRotationTime = currentMillis;  // Update the time of the last rotation
+    lastDebounceTime = currentMillis;  // Update last debounce time
+  }
+}
+
+// Function to serve the main webpage
+void handleRoot() {
+  String html = "<html><body><h1>Wheel Counter</h1><p>Revolutions: " + String(rotationCount) + "</p>";
+  html += "<p>Distance: " + String(rotationCount * wheelCircumference) + " meters</p>";
+  html += "<p>Speed: " + String(speed) + " m/s</p>";
+  html += "<script>setInterval(function(){fetch('/data').then(response => response.text()).then(data => {document.body.innerHTML = data;});}, 1000);</script>";
+  html += "</body></html>";
+  server.send(200, "text/html", html);
+}
+
+// Function to provide the updated data
+void handleData() {
+  String data = "Revolutions: " + String(rotationCount) + "<br>";
+  data += "Distance: " + String(rotationCount * wheelCircumference) + " meters<br>";
+  data += "Speed: " + String(speed) + " m/s";
+  server.send(200, "text/html", data);
+}
+
+void setup() {
+  // Initialize serial communication
+  Serial.begin(115200);
+
+  // Configure the reed switch pin as input with pull-up resistor
+  pinMode(reedPin, INPUT_PULLUP);
+
+  // Attach interrupt to the reed switch pin
+  attachInterrupt(digitalPinToInterrupt(reedPin), onReedSwitchTriggered, FALLING);
+
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to WiFi");
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  // Print the IP address once connected
+  Serial.println();
+  Serial.print("Connected to WiFi. IP Address: ");
+  Serial.println(WiFi.localIP());
+
+  // Define the routes
+  server.on("/", handleRoot);  // Serve the main webpage
+  server.on("/data", handleData);  // Serve the updated data
+
+  // Start the server
+  server.begin();
+}
+
+void loop() {
+  // Handle incoming requests
+  server.handleClient();
+
+  // Get the current time
+  unsigned long currentMillis = millis();
+
+  // Check if enough time has passed to update the distance and speed
+  if (currentMillis - previousMillis >= interval) {
+    previousMillis = currentMillis;
+
+    // Check if a full rotation has been detected
+    if (rotationDetected) {
+      rotationDetected = false;
+
+      // Calculate the distance covered for this rotation
+      float distance = rotationCount * wheelCircumference;
+
+      // Calculate speed (distance/time) in meters per second
+      if (lastRotationTime > 0) {
+        unsigned long timeForLastRotation = currentMillis - lastRotationTime; // Time for the last rotation in ms
+        speed = wheelCircumference / (timeForLastRotation / 1000.0); // Convert time to seconds
+      }
+    }
+  }
+}

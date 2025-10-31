@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TechsPassion Live GPS Tracker (Google Embed)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8">
+    
+    <style>
+        /* CSS for 100% responsive, full-screen map on all devices */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        #map-container {
+            height: 100%;
+        }
+        #live-map {
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
+        #title-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 10px;
+            background-color: #333;
+            color: white;
+            z-index: 100;
+            text-align: center;
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="title-bar">
+        Live Location (Updating Every 20s): <span id="current-coords">Awaiting Data...</span>
+    </div>
+
+    <div id="map-container">
+        <iframe id="live-map" src="" allowfullscreen></iframe>
+    </div>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+
+    <script>
+        // --- Custom Settings ---
+        const CHANNEL_ID = Your Channel ID Here; // Update this with your channel ID
+        const READ_API_KEY = "Your API Read Key Here";// Update this with your Read API Key
+        
+        // ThingSpeak API URL to get the LAST entry's feeds (Field 1 & 2)
+        const TS_API_URL = "https://api.thingspeak.com/channels/" + CHANNEL_ID + "/feeds/last.json?api_key=" + READ_API_KEY;
+
+        const UPDATE_INTERVAL = 20000; // 20 seconds
+        let isFirstLoad = true;
+        
+        /**
+         * Fetches the latest coordinates from ThingSpeak and updates the map iframe.
+         */
+        function fetchAndRefreshMap() {
+            // Use jQuery's AJAX (GET) to retrieve the last JSON entry from ThingSpeak
+            $.getJSON(TS_API_URL, function(data) {
+                
+                // Get data from Field 1 (Latitude) and Field 2 (Longitude)
+                const lat = parseFloat(data.field1);
+                const lng = parseFloat(data.field2);
+
+                if (isNaN(lat) || isNaN(lng)) {
+                    console.log("Invalid coordinates received. Waiting for valid data...");
+                    document.getElementById('current-coords').innerText = "Waiting for valid GPS data...";
+                    return;
+                }
+                
+                const newPosition = lat + "," + lng;
+                
+                // Construct the Google Maps Embed URL
+                // The 'q=' parameter sets the location/marker. The 'z=' parameter sets the zoom level.
+                const mapURL = "https://maps.google.com/maps?q=" + newPosition + "&z=14&output=embed";
+                
+                // Update the iframe source
+                $("#live-map").attr("src", mapURL);
+
+                // Update the display text
+                document.getElementById('current-coords').innerText = newPosition;
+
+                if (isFirstLoad) {
+                    console.log("Map loaded for the first time.");
+                    isFirstLoad = false;
+                }
+
+            }).fail(function() {
+                // Handle API read error
+                console.error("Failed to fetch data from ThingSpeak API.");
+                document.getElementById('current-coords').innerText = "ERROR: Failed to connect to ThingSpeak.";
+            });
+        }
+
+        // Start fetching data immediately and set the interval for automatic updates
+        $(document).ready(function() {
+            fetchAndRefreshMap();
+            window.setInterval(fetchAndRefreshMap, UPDATE_INTERVAL);
+        });
+    </script>
+</body>
+</html>

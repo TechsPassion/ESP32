@@ -226,15 +226,28 @@ void checkSchedule() {
   struct tm timeinfo;
   if (!getLocalTime(&timeinfo)) return;
 
+  // Only run schedule logic if the minute has changed
+  if (timeinfo.tm_min == lastScheduleMinute) return;
+
+  bool triggered = false;
   if (timeinfo.tm_hour == currentSchedule.onHour && timeinfo.tm_min == currentSchedule.onMin) {
-    if (!relayState) {
-      relayState = true;
-      updateSwitchState();
-    }
+    relayState = true;
+    updateSwitchState();
+    triggered = true;
+    Serial.println("Schedule: Auto-ON triggered");
   } else if (timeinfo.tm_hour == currentSchedule.offHour && timeinfo.tm_min == currentSchedule.offMin) {
-    if (relayState) {
-      relayState = false;
-      updateSwitchState();
+    relayState = false;
+    updateSwitchState();
+    triggered = true;
+    Serial.println("Schedule: Auto-OFF triggered");
+  }
+
+  if (triggered) {
+    lastScheduleMinute = timeinfo.tm_min;
+  } else {
+    // Reset tracker when we are outside the scheduled minutes
+    if (timeinfo.tm_min != currentSchedule.onMin && timeinfo.tm_min != currentSchedule.offMin) {
+      lastScheduleMinute = -1;
     }
   }
 }

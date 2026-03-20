@@ -277,8 +277,8 @@ void setupServer() {
       
       html += "<form action='/settings' method='POST'>";
       html += "<div class='sec-head'>Scheduling</div>";
-      html += "<div class='grid'><div>ON Time <input name='on' type='time' value='" + (currentSchedule.onHour < 10 ? "0" : "") + String(currentSchedule.onHour) + ":" + (currentSchedule.onMin < 10 ? "0" : "") + String(currentSchedule.onMin) + "'></div>";
-      html += "<div>OFF Time <input name='off' type='time' value='" + (currentSchedule.offHour < 10 ? "0" : "") + String(currentSchedule.offHour) + ":" + (currentSchedule.offMin < 10 ? "0" : "") + String(currentSchedule.offMin) + "'></div>";
+      html += String("<div class='grid'><div>ON Time <input name='on' type='time' value='") + (currentSchedule.onHour < 10 ? "0" : "") + String(currentSchedule.onHour) + ":" + (currentSchedule.onMin < 10 ? "0" : "") + String(currentSchedule.onMin) + "'></div>";
+      html += String("<div>OFF Time <input name='off' type='time' value='") + (currentSchedule.offHour < 10 ? "0" : "") + String(currentSchedule.offHour) + ":" + (currentSchedule.offMin < 10 ? "0" : "") + String(currentSchedule.offMin) + "'></div>";
       html += "<div style='grid-column:span 2;flex-direction:row;align-items:center;padding-top:5px;'><input name='enabled' type='checkbox' " + String(currentSchedule.enabled ? "checked" : "") + " style='margin:0 8px 0 0;width:auto;'> Enable Automated Schedule</div></div>";
       
       html += "<div class='sec-head'>Watchdog & Regional</div>";

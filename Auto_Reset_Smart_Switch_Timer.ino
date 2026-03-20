@@ -72,6 +72,7 @@ bool relayState = false;
 bool internetConnected = false;
 unsigned long lastConnectionCheck = 0;
 unsigned long lastResetTime = 0;
+int lastScheduleMinute = -1; // Track last minute schedule was run
 bool lastButtonState = HIGH;
 unsigned long lastDebounceTime = 0;
 const unsigned long debounceDelay = 50;
@@ -272,8 +273,8 @@ void setupServer() {
       
       html += "<form action='/settings' method='POST' style='text-align:left;'>";
       html += "<h3 class='sec-head'>Scheduling</h3>";
-      html += "ON Time: <input name='on' type='time' value='" + (currentSchedule.onHour < 10 ? "0" : "") + String(currentSchedule.onHour) + ":" + (currentSchedule.onMin < 10 ? "0" : "") + String(currentSchedule.onMin) + "' style='width:100px'><br><br>";
-      html += "OFF Time: <input name='off' type='time' value='" + (currentSchedule.offHour < 10 ? "0" : "") + String(currentSchedule.offHour) + ":" + (currentSchedule.offMin < 10 ? "0" : "") + String(currentSchedule.offMin) + "' style='width:100px'><br><br>";
+      html += String("ON Time: <input name='on' type='time' value='") + (currentSchedule.onHour < 10 ? "0" : "") + String(currentSchedule.onHour) + ":" + (currentSchedule.onMin < 10 ? "0" : "") + String(currentSchedule.onMin) + "' style='width:100px'><br><br>";
+      html += String("OFF Time: <input name='off' type='time' value='") + (currentSchedule.offHour < 10 ? "0" : "") + String(currentSchedule.offHour) + ":" + (currentSchedule.offMin < 10 ? "0" : "") + String(currentSchedule.offMin) + "' style='width:100px'><br><br>";
       html += "Enabled: <input name='enabled' type='checkbox' " + String(currentSchedule.enabled ? "checked" : "") + "><br>";
       
       html += "<h3 class='sec-head'>Watchdog Timings</h3>";

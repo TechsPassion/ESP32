@@ -11,6 +11,7 @@
  * - Live Dark Mode UI: Real-time dashboard for time, connectivity, and switch state.
  * - Connectivity Watchdog: Automatically resets the relay (Off then On) if internet connection is lost.
  * - Smart Scheduling: Set daily ON/OFF times via the web interface.
+ * - Configurable Watchdog: Set check interval, reset cooldown, and off-duration via UI.
  * - Configurable Timezone: Adjust GMT offset in the dashboard settings.
  * - Manual Control: Physical button (GPIO 0) and web dashboard toggle.
  * - Status LED: Onboard LED (GPIO 2) syncs with the relay state.
@@ -61,11 +62,16 @@ Schedule currentSchedule;
 long gmtOffset_sec = 0;
 int daylightOffset_sec = 0;
 
+// Watchdog Settings (Configurable)
+int checkInterval_sec = 30;
+int resetCooldown_min = 5;
+int offDuration_sec = 2;
+
 // State
 bool relayState = false;
 bool internetConnected = false;
 unsigned long lastConnectionCheck = 0;
-const unsigned long connectionCheckInterval = 30000; // 30 seconds
+unsigned long lastResetTime = 0;
 bool lastButtonState = HIGH;
 unsigned long lastDebounceTime = 0;
 const unsigned long debounceDelay = 50;
@@ -90,6 +96,11 @@ void setup() {
   gmtOffset_sec = preferences.getLong("gmtOffset", 0);
   daylightOffset_sec = preferences.getInt("dstOffset", 0);
   
+  // Load Watchdog Settings
+  checkInterval_sec = preferences.getInt("checkInt", 30);
+  resetCooldown_min = preferences.getInt("coolMin", 5);
+  offDuration_sec = preferences.getInt("offSec", 2);
+
   currentSchedule.onHour = preferences.getInt("onHour", -1);
   currentSchedule.onMin = preferences.getInt("onMin", -1);
   currentSchedule.offHour = preferences.getInt("offHour", -1);
@@ -102,13 +113,24 @@ void setup() {
   if (ssid == "") {
     startAP();
   } else {
-    if (!connectWiFi()) {
-      startAP();
-    } else {
+    WiFi.begin(ssid.c_str(), password.c_str());
+    WiFi.setAutoReconnect(true);
+    Serial.println("Connecting to WiFi...");
+    int retry = 0;
+    while (WiFi.status() != WL_CONNECTED && retry < 10) {
+      delay(500);
+      Serial.print(".");
+      retry++;
+    }
+    
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.println("\nConnected!");
       configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
       if (MDNS.begin("techspassion-switch")) {
         Serial.println("MDNS responder started: http://techspassion-switch.local");
       }
+    } else {
+      Serial.println("\nWiFi not connected yet. Will retry in background.");
     }
   }
 
@@ -121,38 +143,20 @@ void loop() {
   server.handleClient();
   handleButton();
 
-  if (!apMode) {
+  if (!apMode && WiFi.status() == WL_CONNECTED) {
     unsigned long currentMillis = millis();
-    if (currentMillis - lastConnectionCheck > connectionCheckInterval || lastConnectionCheck == 0) {
+    if (currentMillis - lastConnectionCheck > (unsigned long)checkInterval_sec * 1000 || lastConnectionCheck == 0) {
       lastConnectionCheck = currentMillis;
       checkConnectivity();
     }
     checkSchedule();
-  }
-}
-
-bool connectWiFi() {
-  WiFi.begin(ssid.c_str(), password.c_str());
-  Serial.print("Connecting to WiFi");
-  int retry = 0;
-  while (WiFi.status() != WL_CONNECTED && retry < 20) {
-    delay(500);
-    Serial.print(".");
-    retry++;
-  }
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\nConnected!");
-    apMode = false;
-    return true;
-  } else {
-    Serial.println("\nFailed to connect.");
-    return false;
+  } else if (!apMode && WiFi.status() != WL_CONNECTED) {
+    internetConnected = false;
   }
 }
 
 void startAP() {
   apMode = true;
-  // TechsPassion branding for AP
   WiFi.softAP("TechsPassion-Switch", "techspassion");
   Serial.println("Access Point started: TechsPassion-Switch");
 }
@@ -177,28 +181,40 @@ void toggleRelay() {
 }
 
 void checkConnectivity() {
-  if (WiFi.status() != WL_CONNECTED) {
+  HTTPClient http;
+  http.setTimeout(5000); 
+  http.begin("http://clients3.google.com/generate_204");
+  
+  int httpCode = http.GET();
+  
+  if (httpCode != 204) {
     internetConnected = false;
-    resetSwitch();
-    connectWiFi();
-  } else {
-    HTTPClient http;
-    http.begin("http://clients3.google.com/generate_204");
-    int httpCode = http.GET();
-    if (httpCode <= 0) {
-      internetConnected = false;
+    Serial.print("Watchdog: Internet Lost (HTTP: ");
+    Serial.print(httpCode);
+    Serial.println(")");
+    
+    unsigned long currentMillis = millis();
+    if (currentMillis - lastResetTime > (unsigned long)resetCooldown_min * 60000 || lastResetTime == 0) {
+      Serial.println("Watchdog: Triggering Switch Reset...");
       resetSwitch();
+      lastResetTime = currentMillis;
     } else {
-      internetConnected = true;
+      Serial.println("Watchdog: In cooldown, skipping reset.");
     }
-    http.end();
+  } else {
+    if (!internetConnected) {
+      Serial.println("Watchdog: Internet Restored!");
+      lastResetTime = 0; 
+    }
+    internetConnected = true;
   }
+  http.end();
 }
 
 void resetSwitch() {
   digitalWrite(relayPin, LOW);
   digitalWrite(ledPin, LOW);
-  delay(2000);
+  delay(offDuration_sec * 1000);
   digitalWrite(relayPin, relayState ? HIGH : LOW);
   digitalWrite(ledPin, relayState ? HIGH : LOW);
 }
@@ -245,20 +261,30 @@ void setupServer() {
       html += ".btn:active{transform:scale(0.95);} .off{background:#64748b;box-shadow:none;}";
       html += ".status-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #334155;}";
       html += ".dot{height:10px;width:10px;background-color:#ef4444;border-radius:50%;display:inline-block;margin-right:5px;} .online{background-color:#22c55e;}";
-      html += "input[type='time'],input[type='number']{background:#334155;border:1px solid #475569;color:#fff;padding:8px;border-radius:8px;}";
-      html += ".footer{margin-top:20px;font-size:0.8em;color:#64748b;} a{color:#38bdf8;text-decoration:none;}";
+      html += "input{background:#334155;border:1px solid #475569;color:#fff;padding:8px;border-radius:8px;}";
+      html += ".footer{margin-top:20px;font-size:0.8em;color:#64748b;} a{color:#38bdf8;text-decoration:none;} .sec-head{color:#38bdf8;border-bottom:1px solid #38bdf8;padding-bottom:5px;margin-top:20px;}";
       html += "</style></head><body><div class='card'><h1>TechsPassion</h1><p class='sub'>http://techspassion-switch.local</p>";
       html += "<div class='status-row'><span>System Clock</span><span id='time'>--:--:--</span></div>";
       html += "<div class='status-row'><span>WiFi Link</span><span><span id='wifiDot' class='dot'></span><span id='wifiText'>...</span></span></div>";
       html += "<div class='status-row'><span>Internet</span><span><span id='netDot' class='dot'></span><span id='netText'>...</span></span></div>";
       html += "<div class='status-row'><span>Switch Status</span><strong id='relayLabel' style='color:#38bdf8'>OFF</strong></div>";
       html += "<button id='toggleBtn' class='btn' onclick='toggle()'>Turn ON</button>";
-      html += "<h3>Schedule & Settings</h3><form action='/settings' method='POST' style='text-align:left;'>";
-      html += String("ON Time: <input name='on' type='time' value='") + (currentSchedule.onHour < 10 ? "0" : "") + String(currentSchedule.onHour) + ":" + (currentSchedule.onMin < 10 ? "0" : "") + String(currentSchedule.onMin) + "' style='width:100px'><br><br>";
-      html += String("OFF Time: <input name='off' type='time' value='") + (currentSchedule.offHour < 10 ? "0" : "") + String(currentSchedule.offHour) + ":" + (currentSchedule.offMin < 10 ? "0" : "") + String(currentSchedule.offMin) + "' style='width:100px'><br><br>";
-      html += "Enabled: <input name='enabled' type='checkbox' " + String(currentSchedule.enabled ? "checked" : "") + "><br><br>";
-      html += "GMT Offset (hrs): <input name='gmt' type='number' step='0.5' value='" + String(gmtOffset_sec / 3600.0) + "' style='width:80px'><br><br>";
-      html += "<input type='submit' value='Apply Changes' style='width:100%;padding:10px;background:#22c55e;color:white;border:none;border-radius:8px;cursor:pointer;'></form>";
+      
+      html += "<form action='/settings' method='POST' style='text-align:left;'>";
+      html += "<h3 class='sec-head'>Scheduling</h3>";
+      html += "ON Time: <input name='on' type='time' value='" + (currentSchedule.onHour < 10 ? "0" : "") + String(currentSchedule.onHour) + ":" + (currentSchedule.onMin < 10 ? "0" : "") + String(currentSchedule.onMin) + "' style='width:100px'><br><br>";
+      html += "OFF Time: <input name='off' type='time' value='" + (currentSchedule.offHour < 10 ? "0" : "") + String(currentSchedule.offHour) + ":" + (currentSchedule.offMin < 10 ? "0" : "") + String(currentSchedule.offMin) + "' style='width:100px'><br><br>";
+      html += "Enabled: <input name='enabled' type='checkbox' " + String(currentSchedule.enabled ? "checked" : "") + "><br>";
+      
+      html += "<h3 class='sec-head'>Watchdog Timings</h3>";
+      html += "Check Every (sec): <input name='cint' type='number' value='" + String(checkInterval_sec) + "' style='width:70px'><br><br>";
+      html += "Reset Cooldown (min): <input name='cool' type='number' value='" + String(resetCooldown_min) + "' style='width:70px'><br><br>";
+      html += "Power Off For (sec): <input name='offd' type='number' value='" + String(offDuration_sec) + "' style='width:70px'><br>";
+
+      html += "<h3 class='sec-head'>Regional</h3>";
+      html += "GMT Offset (hrs): <input name='gmt' type='number' step='0.5' value='" + String(gmtOffset_sec / 3600.0) + "' style='width:70px'><br><br>";
+      
+      html += "<input type='submit' value='Save All Settings' style='width:100%;padding:12px;background:#22c55e;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;'></form>";
       html += "<div class='footer'>© TechsPassion | <a href='/reset_wifi'>Reset WiFi</a></div></div>";
       html += "<script>function update(){fetch('/status').then(r=>r.json()).then(d=>{";
       html += "document.getElementById('time').innerText=d.time;";
@@ -299,18 +325,30 @@ void setupServer() {
   });
 
   server.on("/settings", HTTP_POST, []() {
+    // Schedule
     String onTime = server.arg("on");
     String offTime = server.arg("off");
     if(onTime.length()==5){currentSchedule.onHour=onTime.substring(0,2).toInt(); currentSchedule.onMin=onTime.substring(3,5).toInt();}
     if(offTime.length()==5){currentSchedule.offHour=offTime.substring(0,2).toInt(); currentSchedule.offMin=offTime.substring(3,5).toInt();}
     currentSchedule.enabled = server.hasArg("enabled");
+    
+    // Watchdog
+    checkInterval_sec = server.arg("cint").toInt();
+    resetCooldown_min = server.arg("cool").toInt();
+    offDuration_sec = server.arg("offd").toInt();
+
+    // Regional
     gmtOffset_sec = (long)(server.arg("gmt").toFloat() * 3600);
     
+    // Persist All
     preferences.putInt("onHour", currentSchedule.onHour);
     preferences.putInt("onMin", currentSchedule.onMin);
     preferences.putInt("offHour", currentSchedule.offHour);
     preferences.putInt("offMin", currentSchedule.offMin);
     preferences.putBool("schEnabled", currentSchedule.enabled);
+    preferences.putInt("checkInt", checkInterval_sec);
+    preferences.putInt("coolMin", resetCooldown_min);
+    preferences.putInt("offSec", offDuration_sec);
     preferences.putLong("gmtOffset", gmtOffset_sec);
     
     configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);

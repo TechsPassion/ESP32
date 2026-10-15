@@ -10,12 +10,11 @@
 const char* ssid = "Your Wifi Name";
 const char* password = "Your Wifi Password";
 
-const int ledPin = 2;      // Onboard LED (change if yours is on another pin)
+const int ledPin = 48;     // Colour LED on ESP32-S3 boards
 const int blinkMs = 1000;  // Change this, then upload over WiFi to see the update
 
 void setup() {
   Serial.begin(115200);
-  pinMode(ledPin, OUTPUT);
 
   // Connect to WiFi
   WiFi.begin(ssid, password);
@@ -36,6 +35,7 @@ void setup() {
 void loop() {
   ArduinoOTA.handle();  // Listens for new code, keep loop() free of long delays
 
-  // Blink without delay()
-  digitalWrite(ledPin, (millis() / blinkMs) % 2);
+  // Blink the LED blue without delay()
+  bool on = (millis() / blinkMs) % 2;
+  rgbLedWrite(ledPin, 0, 0, on ? 40 : 0);
 }

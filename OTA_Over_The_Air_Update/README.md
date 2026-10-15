@@ -55,6 +55,8 @@ The LED now blinks faster: the new code arrived over WiFi.
 
 ## Notes
 
+- The sketch blinks the colour LED on GPIO 48 (ESP32-S3 boards). On a regular ESP32 with a plain LED on GPIO 2, use `pinMode(2, OUTPUT)` in `setup()` and `digitalWrite(2, on)` in `loop()`.
+- The Serial Monitor only works on the USB (COM) port, not the network port.
 - Your computer and the ESP32 must be on the same WiFi.
 - Every sketch you upload must include the OTA code, or the next upload needs USB again.
 - Keep `loop()` free of long `delay()` calls so the ESP32 can hear the next upload.

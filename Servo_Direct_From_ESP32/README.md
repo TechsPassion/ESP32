@@ -21,6 +21,7 @@ A servo wants one pulse every 20 ms. The pulse width sets the angle. The ESP32 m
 | Brown / black (GND) | External supply (−) **and** an ESP32 GND pin |
 
 - Do not power the servo from the board's 5 V or 3.3 V pin. A stalled servo resets the ESP32.
+- Check the voltage: SG90 / MG90S servos are rated 4.8-6 V. A 2-cell 18650 pack is 7.4-8.4 V, which is too much on its own; put a 5 V regulator (buck converter / BEC) between the pack and the servo, or use 4 NiMH AA cells (4.8 V).
 - Put a 470-1000 µF capacitor across the servo supply.
 - The ESP32 signal is 3.3 V. SG90 / MG90S class servos accept it.
 
@@ -30,7 +31,19 @@ A servo wants one pulse every 20 ms. The pulse width sets the angle. The ESP32 m
 
 GPIO 14 is free on the ESP32-S3-CAM (the camera uses 4-13 and 15-18). On other boards any plain GPIO works; avoid the boot pins (0, 3, 45, 46) and the USB pins (19, 20).
 
-More servos: same wiring, one GPIO each. Classic ESP32: 16. ESP32-S3: 8 (7 with the camera running). Beyond that, use a PCA9685.
+## Do you need a PCA9685?
+
+Only when your board runs out of servo outputs. Each servo needs its own PWM signal; the wiring stays the same.
+
+| Board | Servos straight from the pins |
+|---|---|
+| ESP32 (classic) | 16 |
+| ESP32-S3 | 8 (7 while the camera runs, it uses one PWM channel) |
+| Arduino Uno / Nano (Servo library) | 12 |
+| Arduino Mega (Servo library) | 48 |
+| Raspberry Pi | 2 hardware PWM channels on most models. More is possible with software PWM, but it jitters. |
+
+Need more than that? A PCA9685 adds 16 servo outputs over I2C, and you can chain several boards on the same two wires.
 
 <p align="center"><img src="images/esp32-s3-cam-pinout.jpg" alt="ESP32-S3-CAM pinout" width="720"></p>
 
@@ -55,5 +68,9 @@ void servoWrite(int deg) {
 ```
 
 If the servo buzzes at the end stops, change 500-2400 to 1000-2000. On Arduino esp32 core 2.x use `ledcSetup` + `ledcAttachPin` instead of `ledcAttach`.
+
+## Disclaimer
+
+This is a learning project, shared as is. Check your servo and power supply ratings before wiring, and build it at your own risk. The ESP32-S3-CAM pinout image is the seller's product image, included for reference.
 
 You can use this code however you like. Please consider liking and subscribing to my YouTube channel: https://www.youtube.com/@techs.passion

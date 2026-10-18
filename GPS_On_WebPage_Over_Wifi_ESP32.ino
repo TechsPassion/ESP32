@@ -7,8 +7,8 @@ TinyGPSPlus gps;
 HardwareSerial SerialGPS(1); // Use hardware serial for GPS
 
 // WiFi credentials for Access Point
-const char* ssid = "TechsPassion";
-const char* password = "subscribe";
+const char* ssid = "YOUR_WIFI_NAME";
+const char* password = "YOUR_WIFI_PASSWORD";
 
 // GPS Data variables
 double latitude = 0.0, longitude = 0.0;

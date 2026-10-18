@@ -2,8 +2,8 @@
 #include <HTTPClient.h>
 
 // Wi-Fi credentials
-const char* ssid = "Wifi Name"; // Your Wi-Fi SSID
-const char* password = "Wifi Passowrd"; // Your Wi-Fi Password
+const char* ssid = "YOUR_WIFI_NAME"; // Your Wi-Fi SSID
+const char* password = "YOUR_WIFI_PASSWORD"; // Your Wi-Fi Password
 
 // Discord Webhook URL
 const char* webhookURL = "WebHook URL";

@@ -19,8 +19,8 @@ float speed = 0.0; // Speed in meters per second
 const long interval = 100;
 
 // Wi-Fi settings
-const char* ssid = "Wifi Name"; // Replace with your Wi-Fi SSID
-const char* password = "Wifi Password"; // Replace with your Wi-Fi password
+const char* ssid = "YOUR_WIFI_NAME"; // Replace with your Wi-Fi SSID
+const char* password = "YOUR_WIFI_PASSWORD"; // Replace with your Wi-Fi password
 
 // Create an instance of the web server on port 80
 WebServer server(80);

@@ -2,8 +2,8 @@
 #include <WebServer.h>
 
 // Replace with your network credentials
-const char* ssid = "WIFI Name";
-const char* password = "Password";
+const char* ssid = "YOUR_WIFI_NAME";
+const char* password = "YOUR_WIFI_PASSWORD";
 
 // Create a web server object
 WebServer server(80);

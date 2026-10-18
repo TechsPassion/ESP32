@@ -2,12 +2,12 @@
 #include "ThingSpeak.h"
 
 // Replace with your Wi-Fi credentials
-const char* ssid = "TechsPassion";       
-const char* password = "Subscribe";
+const char* ssid = "YOUR_WIFI_NAME";       
+const char* password = "YOUR_WIFI_PASSWORD";
 
 // Replace with your ThingSpeak Channel ID and Write API Key
 unsigned long myChannelNumber = Your Channel ID Here; 
-const char* myWriteAPIKey = "API Write Key"; 
+const char* myWriteAPIKey = "YOUR_API_KEY"; 
 
 // --- Random GPS Range (Las Vegas Area) ---
 const float BASE_LAT = 36.1126;

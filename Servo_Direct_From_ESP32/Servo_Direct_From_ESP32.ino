@@ -51,7 +51,7 @@ void loop() {
     if (cmd == "s") {
       sweeping = !sweeping;
       Serial.println(sweeping ? "sweep on" : "sweep off");
-    } else if (cmd.length()) {
+    } else if (cmd.length() && isDigit(cmd[0])) {   // ignore anything that isn't a number
       sweeping = false;
       angle = constrain(cmd.toInt(), 0, 180);
       servoWrite(angle);

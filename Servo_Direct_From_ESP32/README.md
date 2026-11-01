@@ -2,7 +2,7 @@
 
 Run a hobby servo from an ESP32 GPIO pin. No PCA9685, no library.
 
-Watch the video on my YouTube channel: https://www.youtube.com/@techs.passion
+Watch the video: https://youtu.be/dM0Tc3F-pVU
 
 ## How it works
 
